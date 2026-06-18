@@ -19,6 +19,7 @@ const ErrorHandler = require("./middleware/errorhandler");
 const rateLimit = require("express-rate-limit");
 const express = require("express");
 const app = express();
+app.set('trust proxy', 1);
 const refreshCollections = require("./data/refreshCollections");
 const refreshPrices = require("./data/refreshPrices");
 const refreshAuctions = require("./data/refreshAuctions");
