@@ -1,50 +1,35 @@
 const axios = require("axios");
-const fs = require("fs");
-const { toFixed } = require("../constants/functions");
-const config = require("../config.json");
+const pool = require("./db"); // The file you created earlier
 
-module.exports = async function refresAuctions() {
+module.exports = async function refreshAuctions() {
   async function updateAuctions() {
-    let request;
     try {
-      request = await axios.get("https://api.hypixel.net/skyblock/auctions");
-    } catch (err) {
-      return console.log("Failed to update auctions: ", err);
-    }
+      const response = await axios.get("https://api.hypixel.net/skyblock/auctions");
+      if (response.status !== 200) return;
 
-    if (request.status === 200) {
-      if (config.auctionHouse.refreshMessage)
-        console.log("[AUCTIONS] Getting auctions.");
-      let auctions = [];
-      for (let i = 0; i < request.data.totalPages; i++) {
-        const data = (
-          await axios.get(`https://api.hypixel.net/skyblock/auctions?page=${i}`)
-        ).data.auctions;
-        for (const auction of data) {
-          auctions.push(auction);
-        }
+      console.log("[AUCTIONS] Starting update...");
 
-        if (config.debug)
-          console.log(
-            `[AUCTIONS] Progress ${toFixed(
-              (i / request.data.totalPages) * 100,
-              2
-            )}%`
+      // Clear old data
+      await pool.query('TRUNCATE TABLE auctions');
+
+      for (let i = 0; i < response.data.totalPages; i++) {
+        const pageData = await axios.get(`https://api.hypixel.net/skyblock/auctions?page=${i}`);
+        const auctions = pageData.data.auctions;
+
+        // Insert into database in smaller batches
+        for (const auction of auctions) {
+          await pool.query(
+            'INSERT INTO auctions (uuid, item_name, starting_bid, bin, auctioneer) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+            [auction.uuid, auction.item_name, auction.starting_bid, auction.bin || false, auction.auctioneer]
           );
+        }
       }
-      fs.writeFileSync(
-        "./data/auctions.json",
-        JSON.stringify(auctions, null, 2)
-      );
-      if (config.auctionHouse.refreshMessage)
-        console.log("[AUCTIONS] Auctions updated successfully");
-    } else {
-      console.log("[AUCTIONS] Failed to update Auctions: ", request.status);
+      console.log("[AUCTIONS] Updated successfully to Neon DB");
+    } catch (err) {
+      console.error("Failed to update auctions: ", err);
     }
   }
 
   updateAuctions();
-  setInterval(async () => {
-    updateAuctions();
-  }, 1000 * 60 * 10); // 10 minutes
+  setInterval(updateAuctions, 1000 * 60 * 10);
 };
