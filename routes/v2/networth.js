@@ -9,7 +9,7 @@ setInterval(async () => { prices = await getPrices(); }, 1000 * 60 * 5);
 module.exports = wrap(async function (req, res) {
   const profileId = req.params.profileid?.toLowerCase();
   let uuid = req.params.uuid;
-  let response = null; // Initialize as null
+  let response = null; 
 
   if (!isUuid(uuid)) {
     const mojang_response = await makeRequest(res, `https://api.ashcon.app/mojang/v2/uuid/${uuid}`);
@@ -22,14 +22,14 @@ module.exports = wrap(async function (req, res) {
     // 1. Try to find the specific profile name
     let data = profileRes.profiles.find(p => p.cute_name.toLowerCase() === profileId);
     
-    // 2. Fallback: If "best" or name not found, pick the most recently active profile
+    // 2. Fallback: If name not found or "best" requested, pick the most recently active profile
     if (!data || profileId === "best") {
       data = profileRes.profiles.reduce((prev, current) => 
         (prev.last_save || 0) > (current.last_save || 0) ? prev : current
       );
     }
 
-    // Build the response
+    // 3. Build the response object
     response = {
       uuid: uuid,
       name: data.cute_name,
@@ -38,5 +38,6 @@ module.exports = wrap(async function (req, res) {
     };
   }
 
+  // If we have data, return 200, otherwise return 404
   return response ? res.status(200).json({ status: 200, data: response }) : res.status(404).json({ status: 404, message: "Profile not found" });
 });
