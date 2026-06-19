@@ -41,5 +41,7 @@ module.exports = wrap(async function (req, res) {
     }
   }
 
+
+
   return response?.networth ? res.status(200).json({ status: 200, data: response }) : res.status(404).json({ status: 404, data: response });
 });
